@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        table {
+            width: 50%;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid white;
+            padding: 10px;
+        }
+        th {
+            background-color: lightgrey;
+            color: black;
+        }
+        .back-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: green;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .back-button:hover {
+            background: darkgreen;
+        }
+    </style>
+</head>
+<body>
+<h2>Leaderboard</h2>
+<table>
+    <thead>
+    <tr>
+        <th>Username</th>
+        <th>Score</th>
+    </tr>
+    </thead>
+    <tbody id="leaderboardBody">
+
+    </tbody>
+</table>
+
+<button class="back-button" onclick="goBackToQuiz()">Back to Quizzes</button>
+
+<script>
+    function fetchLeaderboard() {
+        const quizId = localStorage.getItem("quiz_id");
+
+        if (!quizId) {
+            alert("Quiz ID is missing! Please restart the quiz.");
+            window.location.href = "quiz_selection.html";
+            return;
+        }
+
+        console.log("Fetching leaderboard for quiz_id:", quizId);
+
+        fetch(`http://localhost:8080/api/leaderboard/${quizId}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Leaderboard Data:", data);
+
+                const leaderboardBody = document.getElementById("leaderboardBody");
+                leaderboardBody.innerHTML = "";
+
+                if (data.length === 0) {
+                    leaderboardBody.innerHTML = "<tr><td colspan='2'>No scores available</td></tr>";
+                } else {
+                    data.forEach(score => {
+                        const row = `<tr>
+                            <td>${score.username}</td>
+                            <td>${score.score}</td>
+                        </tr>`;
+                        leaderboardBody.innerHTML += row;
+                    });
+                }
+            })
+            .catch(error => {
+                console.error("Error fetching leaderboard:", error);
+                alert("No scores available for this quiz.");
+            });
+    }
+
+    function goBackToQuiz() {
+        window.location.href = "quiz_selection.html";
+    }
+
+    fetchLeaderboard();
+</script>
+
+</body>
+</html>

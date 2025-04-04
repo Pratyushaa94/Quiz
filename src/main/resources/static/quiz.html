@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz</title>
+    <style>
+        body {
+            background: url('/images/quiz.jpg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .quiz-container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            width: 50%;
+            text-align: center;
+            position: relative;
+        }
+        .timer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            color: red;
+        }
+        .options {
+            text-align: left;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .option-btn {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: white;
+            transition: background-color 0.3s;
+        }
+        .option-btn:hover {
+            background-color: lightgray;
+        }
+        .selected {
+            background-color: green !important;
+            color: white;
+        }
+        .navigation {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .score-container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            width: 300px;
+            margin: auto;
+        }
+        .leaderboard-link {
+            display: block;
+            margin-top: 10px;
+            font-size: 18px;
+            color: blue;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+<div class="quiz-container">
+    <div class="timer" id="timer">10:00</div>
+    <h2 id="question-text">Loading question...</h2>
+    <div class="options" id="options"></div>
+    <div class="navigation">
+        <button id="prev" onclick="prevQuestion()" disabled>Previous</button>
+        <button id="next" onclick="nextQuestion()">Next</button>
+        <button id="submit" onclick="submitQuiz()" style="display:none;">Submit</button>
+    </div>
+</div>
+
+<script>
+    let username = sessionStorage.getItem("username") || prompt("Enter your username:");
+    sessionStorage.setItem("username", username);
+
+
+    let quizId = new URLSearchParams(window.location.search).get('quizId') || 1;
+    localStorage.setItem("quiz_id", quizId);
+
+    let currentIndex = 1;
+    let totalQuestions = 10;
+    let timer = 600;
+    let interval;
+    let userAnswers = {};
+
+    async function fetchQuestion() {
+        console.log("Fetching question " + currentIndex);
+        try {
+            const response = await fetch(`/api/play/${quizId}/questions/${currentIndex}`);
+            const question = await response.json();
+            console.log("Received question:", question);
+
+            if (!question || !question.questionText) {
+                document.getElementById('question-text').innerText = "Error loading question!";
+                return;
+            }
+            displayQuestion(question);
+        } catch (error) {
+            console.error("Error fetching question:", error);
+        }
+    }
+
+    function displayQuestion(question) {
+        console.log("Displaying question:", question);
+
+        document.getElementById('question-text').innerText = question.questionText || "No question text available";
+
+        let optionsHTML = "";
+        let options = { A: question.optionA, B: question.optionB, C: question.optionC, D: question.optionD };
+
+        for (let key in options) {
+            if (!options[key] || options[key].trim() === "") {
+                console.warn(`Warning: Option ${key} is missing for question ${question.id}`);
+                continue;
+            }
+            let selectedClass = (userAnswers[currentIndex] === key) ? "selected" : "";
+            optionsHTML += `<button class="option-btn ${selectedClass}" onclick="selectOption('${key}', this)">${options[key]}</button>`;
+        }
+
+        document.getElementById('options').innerHTML = optionsHTML || "<p style='color:red;'>No options available!</p>";
+        document.getElementById('prev').disabled = currentIndex === 1;
+        document.getElementById('next').style.display = currentIndex < totalQuestions ? 'inline' : 'none';
+        document.getElementById('submit').style.display = currentIndex === totalQuestions ? 'inline' : 'none';
+    }
+
+    function selectOption(answer, button) {
+        userAnswers[currentIndex] = answer;
+        document.querySelectorAll('.option-btn').forEach(btn => btn.classList.remove('selected'));
+        button.classList.add('selected');
+    }
+
+    function nextQuestion() {
+        if (currentIndex < totalQuestions) {
+            currentIndex++;
+            fetchQuestion();
+        }
+    }
+
+    function prevQuestion() {
+        if (currentIndex > 1) {
+            currentIndex--;
+            fetchQuestion();
+        }
+    }
+
+    function startTimer() {
+        interval = setInterval(() => {
+            if (timer === 300) alert('Only 5 minutes left!');
+            if (timer <= 0) {
+                clearInterval(interval);
+                submitQuiz();
+            }
+            document.getElementById('timer').innerText = formatTime(timer);
+            timer--;
+        }, 1000);
+    }
+
+    function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    async function submitQuiz() {
+        if (!confirm('Are you sure you want to submit?')) return;
+
+        let username = localStorage.getItem('username') || 'Neha';
+        console.log("Submitting quiz for:", username);
+        console.log("User Answers:", userAnswers);
+
+        try {
+            const response = await fetch(`/api/play/${quizId}/submit?username=${username}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(userAnswers)
+            });
+
+            const result = await response.json();
+            console.log("Server Response:", result);
+
+            let score = (typeof result === "number") ? result : (result.score ?? 0);
+
+            document.body.innerHTML = `
+                <div class="score-container">
+                    <h1>Your Score: ${score}</h1>
+                    <a class="leaderboard-link" href="leaderboard.html">View Leaderboard</a>
+                </div>
+            `;
+        } catch (error) {
+            console.error("Error submitting quiz:", error);
+            alert("Submission failed! Please try again.");
+        }
+    }
+
+    fetchQuestion();
+    startTimer();
+</script>
+
+</body>
+</html>
