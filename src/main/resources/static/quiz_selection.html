@@ -69,7 +69,7 @@
     document.addEventListener("DOMContentLoaded", function () {
         const quizList = document.getElementById("quiz-list");
 
-        fetch("http://localhost:8080/api/quizzes")
+        fetch("http://34.247.167.122:8080/api/quizzes")
             .then(response => {
                 if (!response.ok) {
                     throw new Error("Failed to fetch quizzes.");
